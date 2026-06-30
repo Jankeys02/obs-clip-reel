@@ -21,7 +21,7 @@ Three static HTML files, zero dependencies, zero build step. Plays Twitch clips 
 3. Open `sourcebuilder.html` in your browser, fill in channel + Client ID + token + any options, copy the resulting URL.
 4. In OBS: add a **Browser Source** → point it at the local `clips.html` (or paste the full URL) → set size to 1920×1080 → check "Shutdown source when not visible".
 
-Your Client ID and token live only in the OBS source URL — they're never stored in these files.
+Credentials live only in the OBS source URL at runtime. The builder tools optionally cache them in your browser's `localStorage` for convenience — clear via the builder's "Clear" button or browser DevTools.
 
 ## Features
 
