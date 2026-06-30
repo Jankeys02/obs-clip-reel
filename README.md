@@ -28,7 +28,7 @@ Twitch bounces you to `http://localhost/#access_token=XXXX`. The page fails to l
 
 Want a local copy? [Download the zip](https://github.com/Jankeys02/obs-clip-reel/releases/latest) or `git clone https://github.com/Jankeys02/obs-clip-reel.git`. The player shows a banner when a new release is tagged — hosted users get it automatically.
 
-Credentials live only in the OBS source URL at runtime. The builders optionally cache them in browser `localStorage` — clear via the *Clear* button.
+**Where your token lives.** At runtime, only in the OBS source URL. In the builders, Client ID + token are held in `sessionStorage` (this tab only, wiped when the tab closes); non-secret form fields stay in `localStorage` so your settings persist. Clear either with the builder's *Clear* button.
 
 ## Features
 

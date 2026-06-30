@@ -54,7 +54,7 @@ code{background:#000;padding:1px 4px;border-radius:2px;color:#9cf}
 <div class=sub>Drag/resize the overlay in the preview → tweak knobs → copy CSS + URL params.</div>
 
 <h2>Live preview (real clips)</h2><div class=sec>
-<div class=hint>Embed the real <code>clips.html</code> player so you style against actual video. Credentials stay in localStorage only — never logged or in the URL.</div>
+<div class=hint>Embed the real <code>clips.html</code> player so you style against actual video. Credentials stay in this tab's <code>sessionStorage</code> only — cleared when the tab closes, never logged or in the URL.</div>
 <div class=row class=full><input id=lpChannel placeholder="channel(s) e.g. yourchannel"></div>
 <div class=row class=full><input id=lpClientId placeholder="client id" autocomplete=off></div>
 <div class=row class=full><input id=lpToken placeholder="access token" type=password autocomplete=off></div>
@@ -513,16 +513,23 @@ function replayAnim() {
 }
 
 // ── Live preview with real clips.html embedded ───────────────────────────
-// ponytail: credentials kept in localStorage only, never in URL or DOM dataset.
-// The iframe receives them via its own URL params (same-origin, file://).
+// ponytail: clientId+token in sessionStorage (per-tab, cleared on close) — not
+// localStorage. github.io shares an origin across all of Jankeys02's projects,
+// so localStorage would leak creds to any sibling Pages site.
 const CRED_KEY = 'clipsPlayerCSS.creds';
+(function migrate(){
+  // pre-1.0.2 stored creds in localStorage
+  const old = localStorage.getItem(CRED_KEY);
+  if (old && !sessionStorage.getItem(CRED_KEY)) sessionStorage.setItem(CRED_KEY, old);
+  localStorage.removeItem(CRED_KEY);
+})();
 (function restoreCreds(){
-  try { const c = JSON.parse(localStorage.getItem(CRED_KEY) || 'null'); if (!c) return;
+  try { const c = JSON.parse(sessionStorage.getItem(CRED_KEY) || 'null'); if (!c) return;
     $('lpChannel').value = c.channel || ''; $('lpClientId').value = c.clientId || ''; $('lpToken').value = c.token || '';
   } catch {}
 })();
 ['lpChannel','lpClientId','lpToken'].forEach(id => $(id).addEventListener('change', () => {
-  localStorage.setItem(CRED_KEY, JSON.stringify({
+  sessionStorage.setItem(CRED_KEY, JSON.stringify({
     channel: $('lpChannel').value, clientId: $('lpClientId').value, token: $('lpToken').value
   }));
 }));

@@ -32,8 +32,8 @@ a{color:#9147ff}
 
 <h2>Required</h2>
 <div class=row><label>Channel(s)</label><input id=channel placeholder="yourchannel  or  a,b,c"></div>
-<div class=row><label>Client ID</label><input id=clientId placeholder="from dev.twitch.tv/console"></div>
-<div class=row><label>Access Token</label><input id=token placeholder="from the OAuth authorize URL"></div>
+<div class=row><label>Client ID</label><input id=clientId placeholder="from dev.twitch.tv/console" autocomplete=off></div>
+<div class=row><label>Access Token</label><input id=token type=password placeholder="from the OAuth authorize URL" autocomplete=off></div>
 
 <details><summary>How to get Client ID + Token →</summary>
 <ol style="padding-left:20px;margin:8px 0;line-height:1.7">
@@ -152,17 +152,40 @@ function copyUrl() {
 }
 
 const PRESET_KEY = 'clipsPlayerBuilder.preset';
+const CRED_KEY = 'clipsPlayerBuilder.creds';
+// ponytail: clientId+token live in sessionStorage (per-tab, cleared on close),
+// not localStorage — github.io shares an origin across all of Jankeys02's projects.
+const CRED_FIELDS = new Set(['clientId', 'token']);
+// one-time migration: pull pre-1.0.2 creds out of localStorage
+(function migrate(){
+  const old = JSON.parse(localStorage.getItem(PRESET_KEY) || 'null');
+  if (old && (old.clientId || old.token)) {
+    sessionStorage.setItem(CRED_KEY, JSON.stringify({clientId: old.clientId || '', token: old.token || ''}));
+    delete old.clientId; delete old.token;
+    localStorage.setItem(PRESET_KEY, JSON.stringify(old));
+  }
+})();
 function savePreset() {
-  const data = {}; FIELDS.forEach(f => { const el = $(f); data[f] = el.type === 'checkbox' ? el.checked : el.value; });
-  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+  const preset = {}, creds = {};
+  FIELDS.forEach(f => { const el = $(f); if (!el) return;
+    const v = el.type === 'checkbox' ? el.checked : el.value;
+    (CRED_FIELDS.has(f) ? creds : preset)[f] = v;
+  });
+  localStorage.setItem(PRESET_KEY, JSON.stringify(preset));
+  sessionStorage.setItem(CRED_KEY, JSON.stringify(creds));
   const t = $('toast'); t.textContent = 'preset saved'; t.classList.add('show'); setTimeout(() => { t.classList.remove('show'); t.textContent = 'copied!'; }, 1400);
 }
 function loadPreset() {
-  const d = JSON.parse(localStorage.getItem(PRESET_KEY) || 'null'); if (!d) return;
+  const d = {...JSON.parse(localStorage.getItem(PRESET_KEY) || 'null'), ...JSON.parse(sessionStorage.getItem(CRED_KEY) || 'null')};
+  if (!Object.keys(d).length) return;
   FIELDS.forEach(f => { const el = $(f); if (!el || d[f] == null) return; if (el.type === 'checkbox') el.checked = d[f]; else el.value = d[f]; });
   update();
 }
-function clearAll() { FIELDS.forEach(f => { const el = $(f); if (!el) return; if (el.type === 'checkbox') el.checked = false; else el.value = ''; }); update(); }
+function clearAll() {
+  FIELDS.forEach(f => { const el = $(f); if (!el) return; if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
+  sessionStorage.removeItem(CRED_KEY);
+  update();
+}
 
 document.querySelector('#oauthlink').addEventListener('click', e => {
   const cid = $('clientId').value.trim();
@@ -170,7 +193,7 @@ document.querySelector('#oauthlink').addEventListener('click', e => {
 });
 
 // load saved preset on first visit if URL has no params
-if (!location.hash && localStorage.getItem(PRESET_KEY)) loadPreset();
+if (!location.hash && (localStorage.getItem(PRESET_KEY) || sessionStorage.getItem(CRED_KEY))) loadPreset();
 update();
 
 // ── Update check ─────────────────────────────────────────────────────────
