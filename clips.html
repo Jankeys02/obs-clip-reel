@@ -134,6 +134,14 @@ const TRANSITION_VID= get('transitionVideo','');
 if (!SHOW_INFO) info.classList.add('hide');
 v.style.objectFit = FIT;
 
+// ── Dual-video stage: front plays, back preloads next, swap for crossfade ─
+// ponytail: two <video> elements is the minimum for a true two-sided transition (old out + new in)
+const v2 = v.cloneNode(false);
+v2.id = 'v2';
+v2.style.objectFit = FIT;
+v.parentNode.insertBefore(v2, v.nextSibling);
+let front = v, back = v2;
+
 // ── CSS injected from cssbuilder.html via postMessage (cross-origin safe) ─
 const builderStyle = document.createElement('style');
 builderStyle.id = 'builder-injected';
@@ -147,16 +155,18 @@ window.addEventListener('message', e => {
 // ── Transitions ──────────────────────────────────────────────────────────
 // ponytail: CSS keyframes injected once. Custom video transition = separate <video> overlaid.
 const TRANSITION_KF = {
-  fade:         '@keyframes clipEnter{from{opacity:0}to{opacity:1}}',
-  'slide-left': '@keyframes clipEnter{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:none}}',
-  'slide-right':'@keyframes clipEnter{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:none}}',
-  'slide-up':   '@keyframes clipEnter{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:none}}',
-  'slide-down': '@keyframes clipEnter{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:none}}',
-  zoom:         '@keyframes clipEnter{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}',
+  fade:         '@keyframes clipEnter{from{opacity:0}to{opacity:1}}@keyframes clipExit{from{opacity:1}to{opacity:0}}',
+  'slide-left': '@keyframes clipEnter{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:none}}@keyframes clipExit{from{transform:none}to{opacity:0;transform:translateX(-100%)}}',
+  'slide-right':'@keyframes clipEnter{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:none}}@keyframes clipExit{from{transform:none}to{opacity:0;transform:translateX(100%)}}',
+  'slide-up':   '@keyframes clipEnter{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:none}}@keyframes clipExit{from{transform:none}to{opacity:0;transform:translateY(-100%)}}',
+  'slide-down': '@keyframes clipEnter{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:none}}@keyframes clipExit{from{transform:none}to{opacity:0;transform:translateY(100%)}}',
+  zoom:         '@keyframes clipEnter{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}@keyframes clipExit{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.15)}}',
 };
 if (TRANSITION && TRANSITION_KF[TRANSITION] !== undefined) {
   const s = document.createElement('style');
-  s.textContent = TRANSITION_KF[TRANSITION] + `\n.clip-enter{animation:clipEnter ${TRANSITION_MS}ms ease-out}`;
+  s.textContent = TRANSITION_KF[TRANSITION]
+    + `\n.clip-enter{animation:clipEnter ${TRANSITION_MS}ms ease-out forwards}`
+    + `\n.clip-exit{animation:clipExit ${TRANSITION_MS}ms ease-out forwards}`;
   document.head.appendChild(s);
 }
 async function playTransitionVideo() {
@@ -382,32 +392,47 @@ async function play() {
     if (useVideoTransition) await playTransitionVideo();
     const url = (nextResolved?.id === c.id) ? nextResolved.url : await resolveMp4(c.id);
     nextResolved = null;
-    v.src = url;
-    v.volume = VOLUME;
-    v.muted = VOLUME === 0;
-    await v.play().catch(err => { log('info', 'unmuted blocked, muting:', err.message); v.muted = true; return v.play(); });
-    // ponytail: animation and overlay text fire AFTER play() resolves so they align with the actual frame swap, not the network fetch
+    // Load into BACK; play; then crossfade swap with FRONT.
+    back.src = url;
+    back.volume = VOLUME;
+    back.muted = VOLUME === 0;
+    back.classList.remove('clip-enter','clip-exit');
+    await back.play().catch(err => { log('info', 'unmuted blocked, muting:', err.message); back.muted = true; return back.play(); });
+    // ponytail: animation + overlay text fire AFTER play() resolves so they align with the actual frame swap, not the network fetch
     render(c);
-    if (!useVideoTransition && TRANSITION && TRANSITION_KF[TRANSITION]) {
-      v.classList.remove('clip-enter'); void v.offsetWidth; v.classList.add('clip-enter');
+    const useCss = !useVideoTransition && TRANSITION && TRANSITION_KF[TRANSITION] && playedCount > 0;
+    if (useCss) {
+      front.classList.remove('clip-enter'); void front.offsetWidth; front.classList.add('clip-exit');
+      back.classList.add('clip-enter');
       info.classList.remove('clip-enter'); void info.offsetWidth; info.classList.add('clip-enter');
+    } else {
+      front.classList.remove('clip-enter','clip-exit');
     }
+    // Swap roles. Pause + clear old front once its exit animation finishes.
+    const oldFront = front;
+    front = back; back = oldFront;
+    setTimeout(() => {
+      if (oldFront === back) { oldFront.pause(); oldFront.removeAttribute('src'); oldFront.load(); oldFront.classList.remove('clip-enter','clip-exit'); }
+    }, TRANSITION_MS + 50);
     markSeen(c.id);
     playedCount++;
     prefetchNext();
   } catch (e) { log('err', 'skip', c.id, e.message); return skip(); }
-  bar.style.transition = `width ${v.duration || c.duration || 30}s linear`;
+  bar.style.transition = `width ${front.duration || c.duration || 30}s linear`;
   bar.style.width = '100%';
 }
 
 const skip = () => {
   if (!clips.length) return;
   i = (i+1) % clips.length;
-  if (GAP > 0) { v.pause(); v.removeAttribute('src'); setTimeout(play, GAP); }
+  if (GAP > 0) { front.pause(); front.removeAttribute('src'); setTimeout(play, GAP); }
   else play();
 };
-v.addEventListener('ended', () => { log('info', 'ended'); skip(); });
-v.addEventListener('error', () => { log('err', 'video error code=' + (v.error?.code), 'msg=' + (v.error?.message || '?')); skip(); });
+// ponytail: bind to both videos; only the current FRONT may advance the player
+[v, v2].forEach(el => {
+  el.addEventListener('ended', () => { if (el === front) { log('info', 'ended'); skip(); } });
+  el.addEventListener('error', () => { if (el === front) { log('err', 'video error code=' + (el.error?.code), 'msg=' + (el.error?.message || '?')); skip(); } });
+});
 
 async function start() {
   msg.classList.remove('show');
@@ -423,7 +448,7 @@ async function start() {
 
 function stopPlayer() {
   stopped = true;
-  v.pause(); v.removeAttribute('src'); v.load();
+  [v, v2].forEach(el => { el.pause(); el.removeAttribute('src'); el.load(); el.classList.remove('clip-enter','clip-exit'); });
   info.textContent = ''; bar.style.width = '0';
 }
 
@@ -447,8 +472,8 @@ function connectChat() {
       if (MODS_ONLY && !isMod) continue;
       if (CHAT_CTRL) {
         if (text === '!clipskip')   skip();
-        if (text === '!clippause')  v.pause();
-        if (text === '!clipplay')   v.play().catch(()=>{});
+        if (text === '!clippause')  front.pause();
+        if (text === '!clipplay')   front.play().catch(()=>{});
         if (text === '!clipreload') start();
       }
       if (COMMAND) {
