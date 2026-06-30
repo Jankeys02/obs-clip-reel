@@ -1,0 +1,633 @@
+<!doctype html>
+<!-- Visual CSS builder for clips.html — drag/resize overlay live, copy CSS into OBS. -->
+<html><head><meta charset=utf-8><title>Clips Player CSS Builder</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e0e10;color:#efeff1;font:14px/1.4 system-ui,sans-serif;display:grid;grid-template-columns:380px 1fr;height:100vh;overflow:hidden}
+.preview-wrap{background:#000;display:grid;place-items:center;overflow:hidden;min-width:0;min-height:0}
+.panel{padding:18px 20px;overflow-y:auto;border-right:1px solid #222}
+h1{color:#9147ff;margin-bottom:4px;font-size:18px}
+.sub{color:#888;margin-bottom:12px;font-size:12px}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#9147ff;margin:14px 0 6px;border-bottom:1px solid #333;padding-bottom:3px;cursor:pointer;user-select:none}
+h2::after{content:" ▾";color:#555;font-size:9px}
+h2.collapsed::after{content:" ▸"}
+h2.collapsed + .sec{display:none}
+.row{display:grid;grid-template-columns:110px 1fr 46px;gap:8px;align-items:center;margin-bottom:5px}
+.row.full{grid-template-columns:1fr}
+label{color:#bbb;font-size:12px}
+input,select,textarea{background:#1f1f23;color:#efeff1;border:1px solid #333;padding:4px 7px;border-radius:3px;font:12px ui-monospace,monospace;width:100%}
+input[type=range]{padding:0;height:18px}
+input[type=color]{padding:2px;height:24px;cursor:pointer}
+input[type=checkbox]{width:auto;cursor:pointer}
+.val{color:#9cf;font-size:11px;text-align:right;font-family:ui-monospace,monospace}
+.snap{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.snap button{flex:1;font-size:11px;padding:5px 4px}
+
+/* ponytail: 16:9 stage, letterboxed inside .preview-wrap — matches clips.html stage exactly */
+.preview{position:relative;background:#000;overflow:hidden;user-select:none;aspect-ratio:16/9;width:min(100%,calc(100vh*16/9));height:auto;max-height:100%}
+.fakevid{position:absolute;inset:0;background:linear-gradient(135deg,#2a1a4a 0%,#1a3a5a 50%,#1a4a3a 100%);display:grid;place-items:center;color:rgba(255,255,255,.18);font:48px system-ui;letter-spacing:8px;pointer-events:none}
+
+.outs{margin-top:12px}
+.css-out,.url-out{background:#000;border:1px solid #333;border-radius:4px;padding:10px;font:11px/1.5 ui-monospace,monospace;color:#9cf;white-space:pre-wrap;word-break:break-all;max-height:160px;overflow:auto;margin-bottom:6px}
+.url-out{color:#fa6}
+.outlbl{color:#666;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin:8px 0 3px}
+.btns{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+button{background:#9147ff;color:#fff;border:0;padding:7px 12px;border-radius:3px;font:12px sans-serif;cursor:pointer;font-weight:600}
+button:hover{background:#a970ff}
+button.sec{background:#333}button.sec:hover{background:#444}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#9147ff;color:#fff;padding:10px 20px;border-radius:4px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+details{margin:6px 0;background:#18181b;border-radius:3px;padding:6px 10px;font-size:12px}
+summary{cursor:pointer;font-weight:600;color:#bbb;font-size:11px}
+.hint{color:#666;font-size:11px;margin:4px 0 8px;line-height:1.4}
+code{background:#000;padding:1px 4px;border-radius:2px;color:#9cf}
+.vars{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+.vars button{padding:2px 6px;font-size:10px;background:#222;font-weight:400}
+.vars button:hover{background:#9147ff}
+</style>
+<!-- live preview CSS goes here -->
+<style id=live></style>
+</head>
+<body>
+
+<div class=panel>
+<h1>CSS Builder</h1>
+<div class=sub>Drag/resize the overlay in the preview → tweak knobs → copy CSS + URL params.</div>
+
+<h2>Live preview (real clips)</h2><div class=sec>
+<div class=hint>Embed the real <code>clips.html</code> player so you style against actual video. Credentials stay in localStorage only — never logged or in the URL.</div>
+<div class=row class=full><input id=lpChannel placeholder="channel(s) e.g. yourchannel"></div>
+<div class=row class=full><input id=lpClientId placeholder="client id" autocomplete=off></div>
+<div class=row class=full><input id=lpToken placeholder="access token" type=password autocomplete=off></div>
+<div class=btns><button onclick=loadLive()>▶ Load real clips</button><button class=sec onclick=unloadLive()>Use mock</button></div>
+</div>
+
+<h2>Layout</h2><div class=sec>
+<div class=hint>Drag the overlay box. Resize from the purple corner. Drag the bar vertically.</div>
+<div class=snap>
+  <button class=sec onclick="snapInfo('top')">↑ Top</button>
+  <button class=sec onclick="snapInfo('mid')">— Mid</button>
+  <button class=sec onclick="snapInfo('bot')">↓ Bot</button>
+  <button class=sec onclick="snapInfo('full')">⤢ Full</button>
+</div>
+<div class=row><label>Align</label><select id=align><option>left</option><option>center</option><option>right</option></select><span></span></div>
+<div class=row><label>Padding</label><input type=range id=pad min=0 max=60 value=14><span class=val id=padV>14</span></div>
+<div class=row><label>Gap (rows)</label><input type=range id=rowGap min=0 max=30 value=4><span class=val id=rowGapV>4</span></div>
+</div>
+
+<h2>Background</h2><div class=sec>
+<div class=row><label>Gradient</label><input type=range id=grad min=0 max=100 value=78><span class=val id=gradV>78</span></div>
+<div class=row><label>Direction</label><select id=gradDir><option value=down>top→bot</option><option value=up>bot→top</option><option value=none>flat</option></select><span></span></div>
+<div class=row><label>Solid color</label><input type=color id=bgCol value="#000000"></div>
+<div class=row><label>Solid opacity</label><input type=range id=bgOp min=0 max=100 value=0><span class=val id=bgOpV>0</span></div>
+<div class=row><label>Backdrop blur</label><input type=range id=blur min=0 max=30 value=0><span class=val id=blurV>0</span></div>
+<div class=row><label>Border radius</label><input type=range id=radius min=0 max=40 value=0><span class=val id=radiusV>0</span></div>
+<div class=row><label>Border width</label><input type=range id=borderW min=0 max=8 value=0><span class=val id=borderWV>0</span></div>
+<div class=row><label>Border color</label><input type=color id=borderCol value="#9147ff"></div>
+<div class=row><label>Box shadow</label><select id=boxShadow><option value=none>none</option><option value=soft>soft</option><option value=hard>hard</option><option value=glow>purple glow</option></select><span></span></div>
+</div>
+
+<h2>Font</h2><div class=sec>
+<div class=row><label>Family</label><select id=font>
+<option value="system-ui,sans-serif">system-ui</option>
+<option value="'Inter',sans-serif">Inter</option>
+<option value="'Roboto',sans-serif">Roboto</option>
+<option value="'Audiowide',cursive">Audiowide</option>
+<option value="'Bebas Neue',sans-serif">Bebas Neue</option>
+<option value="'Press Start 2P',monospace">Press Start 2P</option>
+<option value="'Russo One',sans-serif">Russo One</option>
+<option value="'Orbitron',sans-serif">Orbitron</option>
+<option value="Impact,sans-serif">Impact</option>
+<option value="Georgia,serif">Georgia</option>
+<option value="ui-monospace,monospace">monospace</option>
+</select><span></span></div>
+<div class=row class=full><label>Google Font @import (optional)</label></div>
+<div class=row class=full><input id=gfont placeholder="@import url('https://fonts.googleapis.com/css2?family=...')"></div>
+<div class=row><label>Text shadow</label><select id=shadow><option value=soft>soft</option><option value=hard>hard outline</option><option value=glow>purple glow</option><option value=double>double outline</option><option value=none>none</option></select><span></span></div>
+<div class=row><label>Letter spacing</label><input type=range id=letter min=-3 max=15 value=0><span class=val id=letterV>0</span></div>
+<div class=row><label>Line height</label><input type=range id=lineH min=80 max=200 value=130><span class=val id=lineHV>130</span></div>
+<div class=row><label>Transform</label><select id=tcase><option value=none>none</option><option value=uppercase>UPPER</option><option value=lowercase>lower</option><option value=capitalize>Title Case</option></select><span></span></div>
+</div>
+
+<h2>Channel (.ch)</h2><div class=sec>
+<div class=row><label>Show</label><input type=checkbox id=chShow checked></div>
+<div class=row class=full><label>Text template</label></div>
+<div class=row class=full><input id=chTemplate placeholder="{channel}"></div>
+<div class=vars data-target=chTemplate></div>
+<div class=row><label>Size</label><input type=range id=chSize min=8 max=80 value=13><span class=val id=chSizeV>13</span></div>
+<div class=row><label>Color</label><input type=color id=chCol value="#ffffff"></div>
+<div class=row><label>Opacity</label><input type=range id=chOp min=0 max=100 value=75><span class=val id=chOpV>75</span></div>
+<div class=row><label>Weight</label><select id=chW><option>400</option><option>600</option><option>700</option><option>900</option></select></div>
+<div class=row><label>Italic</label><input type=checkbox id=chIt></div>
+</div>
+
+<h2>Title (.ti)</h2><div class=sec>
+<div class=row><label>Show</label><input type=checkbox id=tiShow checked></div>
+<div class=row class=full><label>Text template</label></div>
+<div class=row class=full><input id=tiTemplate placeholder="{title}"></div>
+<div class=vars data-target=tiTemplate></div>
+<div class=row><label>Size</label><input type=range id=tiSize min=10 max=120 value=17><span class=val id=tiSizeV>17</span></div>
+<div class=row><label>Color</label><input type=color id=tiCol value="#ffffff"></div>
+<div class=row><label>Weight</label><select id=tiW><option>400</option><option value=600 selected>600</option><option>700</option><option>900</option></select></div>
+<div class=row><label>Italic</label><input type=checkbox id=tiIt></div>
+</div>
+
+<h2>Meta (.me)</h2><div class=sec>
+<div class=row><label>Show</label><input type=checkbox id=meShow checked></div>
+<div class=row class=full><label>Text template</label></div>
+<div class=row class=full><input id=meTemplate placeholder="{views} views · {creator_name} · {date}"></div>
+<div class=vars data-target=meTemplate></div>
+<div class=row><label>Size</label><input type=range id=meSize min=8 max=60 value=12><span class=val id=meSizeV>12</span></div>
+<div class=row><label>Color</label><input type=color id=meCol value="#ffffff"></div>
+<div class=row><label>Opacity</label><input type=range id=meOp min=0 max=100 value=60><span class=val id=meOpV>60</span></div>
+<div class=row><label>Italic</label><input type=checkbox id=meIt></div>
+</div>
+
+<h2>Progress bar (#bar)</h2><div class=sec>
+<div class=row><label>Show</label><input type=checkbox id=barShow checked></div>
+<div class=row><label>Height</label><input type=range id=barH min=0 max=30 value=3><span class=val id=barHV>3</span></div>
+<div class=row><label>Color</label><input type=color id=barCol value="#9147ff"></div>
+<div class=row><label>Glow</label><input type=range id=barGlow min=0 max=30 value=0><span class=val id=barGlowV>0</span></div>
+<div class=row><label>Side margin</label><input type=range id=barMargin min=0 max=200 value=0><span class=val id=barMarginV>0</span></div>
+<div class=row><label>Radius</label><input type=range id=barRadius min=0 max=15 value=0><span class=val id=barRadiusV>0</span></div>
+</div>
+
+<h2>Video</h2><div class=sec>
+<div class=row><label>Brightness</label><input type=range id=vBright min=0 max=200 value=100><span class=val id=vBrightV>100</span></div>
+<div class=row><label>Contrast</label><input type=range id=vContrast min=0 max=200 value=100><span class=val id=vContrastV>100</span></div>
+<div class=row><label>Saturate</label><input type=range id=vSat min=0 max=300 value=100><span class=val id=vSatV>100</span></div>
+<div class=row><label>Blur</label><input type=range id=vBlur min=0 max=20 value=0><span class=val id=vBlurV>0</span></div>
+<div class=row><label>Rounded</label><input type=range id=vRadius min=0 max=80 value=0><span class=val id=vRadiusV>0</span></div>
+</div>
+
+<h2>Animation (overlay only)</h2><div class=sec>
+<div class=row><label>Entry</label><select id=anim><option value=none>none</option><option value=fade>fade in</option><option value=slide-up>slide up</option><option value=slide-down>slide down</option><option value=slide-left>slide left</option><option value=slide-right>slide right</option><option value=zoom>zoom in</option></select><span></span></div>
+<div class=row><label>Duration (ms)</label><input type=range id=animMs min=100 max=2000 value=500 step=50><span class=val id=animMsV>500</span></div>
+</div>
+
+<h2>Playback</h2><div class=sec>
+<div class=row><label>Clips to load</label><input type=number id=limit min=1 max=200 value=20><span class=val id=limitV>20</span></div>
+<div class=hint>Max number of clips fetched from Twitch per channel. Higher = longer queue, more API time on load.</div>
+</div>
+
+<h2>Clip transitions (video)</h2><div class=sec>
+<div class=hint>played BETWEEN clips. Affects the video element, not just the overlay.</div>
+<div class=row><label>Effect</label><select id=transition>
+<option value="">none (cut)</option>
+<option value=fade>fade</option>
+<option value=slide-left>slide left</option>
+<option value=slide-right>slide right</option>
+<option value=slide-up>slide up</option>
+<option value=slide-down>slide down</option>
+<option value=zoom>zoom</option>
+</select><span></span></div>
+<div class=row><label>Duration (ms)</label><input type=range id=transitionMs min=100 max=2000 value=500 step=50><span class=val id=transitionMsV>500</span></div>
+<div class=row class=full><label>Custom transition video</label></div>
+<div class=row class=full><input id=transitionVideo placeholder="https://.../intro.mp4  or  transition.webm (relative)"></div>
+<div class=hint>Plays a video file between clips. Must be a publicly accessible URL <i>or</i> a file in the same folder as <code>clips.html</code>. Local <code>file://</code> paths work in OBS.<br><b>Presets:</b>
+<button class=sec style="padding:3px 8px;font-size:10px" onclick="$('transitionVideo').value='transition.mp4';$('transitionVideo').dispatchEvent(new Event('input'))">transition.mp4</button>
+<button class=sec style="padding:3px 8px;font-size:10px" onclick="$('transitionVideo').value='intro.webm';$('transitionVideo').dispatchEvent(new Event('input'))">intro.webm</button>
+<button class=sec style="padding:3px 8px;font-size:10px" onclick="$('transitionVideo').value='';$('transitionVideo').dispatchEvent(new Event('input'))">clear</button>
+</div>
+</div>
+
+<h2>Extra CSS</h2><div class=sec>
+<textarea id=extra rows=3 placeholder="anything else — appended raw"></textarea>
+</div>
+
+<div class=outs>
+<div class=outlbl>CSS (paste into OBS Custom CSS)</div>
+<div class=css-out id=css></div>
+<div class=outlbl>URL params (add these to your clips.html URL)</div>
+<div class=url-out id=url></div>
+</div>
+
+<div class=btns>
+  <button onclick=copyCSS()>Copy CSS</button>
+  <button onclick=copyURL()>Copy URL params</button>
+  <button class=sec onclick=savePreset()>Save</button>
+  <button class=sec onclick=loadPreset()>Load</button>
+  <button class=sec onclick=resetAll()>Reset</button>
+  <button class=sec onclick=replayAnim()>↻ Replay</button>
+</div>
+
+<details><summary>How to use in OBS →</summary>
+<div style="padding:6px 0;line-height:1.5">
+Right-click Browser Source → Properties → <b>Custom CSS</b> → paste. Add the URL params to your existing <code>?channel=...&amp;clientId=...&amp;token=...</code> URL. Or paste them into <a href="sourcebuilder.html">sourcebuilder.html</a>.
+</div>
+</details>
+</div>
+
+<!-- preview mirrors clips.html DOM exactly when in mock mode; iframe takes over in live mode -->
+<div class=preview-wrap>
+<div class=preview id=preview>
+  <div id=mock>
+    <div class=fakevid id=fakevid>CLIP</div>
+    <div id=info>
+      <div class=ch>yourchannel</div>
+      <div class=ti>That clutch was insane — full team wipe on the last second</div>
+      <div class=me>42.3K views · clipped by SomeViewer · 6/14/2026 · Just Chatting</div>
+    </div>
+    <div id=bar></div>
+  </div>
+  <iframe id=liveFrame style="display:none;position:absolute;inset:0;width:100%;height:100%;border:0;background:#000"></iframe>
+  <div id=liveOverlay style="display:none;position:absolute;top:8px;right:8px;background:rgba(145,71,255,.9);color:#fff;padding:4px 10px;border-radius:3px;font:11px sans-serif;z-index:9">LIVE · click to drag overlay</div>
+</div>
+</div>
+
+<div class=toast id=toast>copied!</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const live = $('live'), out = $('css'), urlOut = $('url'), preview = $('preview');
+const mock = $('mock'), liveFrame = $('liveFrame'), liveOverlay = $('liveOverlay');
+// ── dynamic targets — point at mock OR iframe document depending on mode ─
+let info, bar, ch, ti, me, targetDoc = document, liveStyleEl = live;
+function bindMockTargets() {
+  targetDoc = document; liveStyleEl = live;
+  info = mock.querySelector('#info'); bar = mock.querySelector('#bar');
+  ch = info.querySelector('.ch'); ti = info.querySelector('.ti'); me = info.querySelector('.me');
+  attachInteractions();
+}
+// ponytail: invocation moved to end of script (after box/applyBox/etc. consts are initialized — TDZ)
+
+// sample clip data for template preview
+const SAMPLE = {
+  channel: 'yourchannel', title: 'That clutch was insane — full team wipe',
+  game: 'Valorant', creator_name: 'SomeViewer', created_at: '6/14/2026', date: '6/14/2026',
+  views: '42.3K', views_raw: '42342', duration: '28s'
+};
+const VARS = Object.keys(SAMPLE);
+const expand = tpl => VARS.reduce((s,k) => s.replaceAll(`{${k}}`, SAMPLE[k]), tpl || '');
+
+const KNOBS = ['align','pad','rowGap','grad','gradDir','bgCol','bgOp','blur','radius','borderW','borderCol','boxShadow',
+  'font','gfont','shadow','letter','lineH','tcase',
+  'chShow','chTemplate','chSize','chCol','chOp','chW','chIt',
+  'tiShow','tiTemplate','tiSize','tiCol','tiW','tiIt',
+  'meShow','meTemplate','meSize','meCol','meOp','meIt',
+  'barShow','barH','barCol','barGlow','barMargin','barRadius',
+  'vBright','vContrast','vSat','vBlur','vRadius',
+  'anim','animMs','transition','transitionMs','transitionVideo','limit','extra'];
+
+const val = id => { const el = $(id); return el.type === 'checkbox' ? el.checked : el.value; };
+
+const SHADOWS = {
+  soft:  '0 1px 3px rgba(0,0,0,.6)',
+  hard:  '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 0 #000',
+  glow:  '0 0 8px #9147ff, 0 0 16px #9147ff',
+  double:'-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 4px #9147ff',
+  none:  'none',
+};
+const BOX_SHADOWS = {
+  none: 'none',
+  soft: '0 4px 20px rgba(0,0,0,.5)',
+  hard: '0 0 0 2px #000, 4px 4px 0 #000',
+  glow: '0 0 24px #9147ff',
+};
+
+// position state as % of preview (so OBS canvas size doesn't matter)
+const box = { info: {x:0, y:80, w:100, h:20}, barY: 100 };
+
+const pctX = px => (px / preview.getBoundingClientRect().width) * 100;
+const pctY = px => (px / preview.getBoundingClientRect().height) * 100;
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+function applyBox() {
+  info.style.left   = `${box.info.x}%`;
+  info.style.top    = `${box.info.y}%`;
+  info.style.width  = `${box.info.w}%`;
+  info.style.height = box.info.h ? `${box.info.h}%` : 'auto';
+  bar.style.top = `calc(${box.barY}% - ${+val('barH')}px)`;
+}
+
+// attach drag+resize handlers to current info/bar. Re-runs when iframe loads.
+function attachInteractions() {
+  let infoStart, resizeStart, barStart;
+  info.style.cursor = 'move';
+  info.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('resize-h')) return;
+    infoStart = { x: box.info.x, y: box.info.y, mx: e.clientX, my: e.clientY };
+    info.setPointerCapture(e.pointerId);
+  });
+  info.addEventListener('pointermove', e => {
+    if (!infoStart) return;
+    box.info.x = clamp(infoStart.x + pctX(e.clientX - infoStart.mx), 0, 100 - box.info.w);
+    box.info.y = clamp(infoStart.y + pctY(e.clientY - infoStart.my), 0, 100 - (box.info.h || 5));
+    applyBox(); update();
+  });
+  info.addEventListener('pointerup', () => infoStart = null);
+
+  // resize handle — create in target document so iframe-side works
+  let handle = info.querySelector('.resize-h');
+  if (!handle) {
+    handle = targetDoc.createElement('div');
+    handle.className = 'resize-h';
+    handle.style.cssText = 'position:absolute;right:0;bottom:0;width:18px;height:18px;background:#9147ff;cursor:nwse-resize;border-radius:3px 0 0 0;opacity:.6;z-index:5;pointer-events:auto';
+    info.appendChild(handle);
+  }
+  handle.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    resizeStart = { w: box.info.w, h: box.info.h, mx: e.clientX, my: e.clientY };
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!resizeStart) return;
+    box.info.w = clamp(resizeStart.w + pctX(e.clientX - resizeStart.mx), 10, 100 - box.info.x);
+    box.info.h = clamp(resizeStart.h + pctY(e.clientY - resizeStart.my), 5,  100 - box.info.y);
+    applyBox(); update();
+  });
+  handle.addEventListener('pointerup', () => resizeStart = null);
+
+  bar.style.cursor = 'ns-resize';
+  bar.addEventListener('pointerdown', e => {
+    barStart = { y: box.barY, my: e.clientY };
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!barStart) return;
+    box.barY = clamp(barStart.y + pctY(e.clientY - barStart.my), 0, 100);
+    applyBox(); update();
+  });
+  bar.addEventListener('pointerup', () => barStart = null);
+}
+
+function snapInfo(where) {
+  if (where === 'top')  Object.assign(box.info, {x:0, y:0,   w:100, h:18});
+  if (where === 'bot')  Object.assign(box.info, {x:0, y:78,  w:100, h:22});
+  if (where === 'mid')  Object.assign(box.info, {x:10, y:40, w:80,  h:20});
+  if (where === 'full') Object.assign(box.info, {x:0, y:0,   w:100, h:100});
+  applyBox(); update();
+}
+
+// collapsible sections
+document.querySelectorAll('h2').forEach(h => h.addEventListener('click', () => h.classList.toggle('collapsed')));
+
+// variable insertion buttons
+document.querySelectorAll('.vars').forEach(v => {
+  const target = $(v.dataset.target);
+  VARS.forEach(name => {
+    const b = document.createElement('button');
+    b.textContent = '{' + name + '}';
+    b.type = 'button';
+    b.onclick = () => {
+      const insert = '{' + name + '}';
+      const p = target.selectionStart || target.value.length;
+      target.value = target.value.slice(0, p) + insert + target.value.slice(p);
+      target.dispatchEvent(new Event('input'));
+      target.focus();
+    };
+    v.appendChild(b);
+  });
+});
+
+function buildCSS() {
+  const grad = +val('grad')/100, dir = val('gradDir');
+  const font = val('font'), gfont = val('gfont').trim(), shadow = SHADOWS[val('shadow')];
+  const bgOp = +val('bgOp')/100, bgCol = val('bgCol');
+  const radius = +val('radius'), borderW = +val('borderW'), borderCol = val('borderCol');
+  const blur = +val('blur'), boxShadow = BOX_SHADOWS[val('boxShadow')];
+  const pad = +val('pad'), rowGap = +val('rowGap');
+  const letter = +val('letter'), lineH = +val('lineH')/100, tcase = val('tcase');
+  const lines = [];
+
+  if (gfont) lines.push(gfont.startsWith('@import') ? gfont : `@import url('${gfont}');`);
+
+  // overlay
+  const bgLayers = [];
+  if (bgOp > 0) bgLayers.push(`linear-gradient(${hexToRgba(bgCol, bgOp)}, ${hexToRgba(bgCol, bgOp)})`);
+  if (dir === 'down') bgLayers.push(`linear-gradient(rgba(0,0,0,${grad}),transparent)`);
+  if (dir === 'up')   bgLayers.push(`linear-gradient(transparent,rgba(0,0,0,${grad}))`);
+  const bg = bgLayers.length ? bgLayers.join(',') : 'none';
+
+  lines.push(`#info{` +
+    `position:fixed;left:${box.info.x}%;top:${box.info.y}%;` +
+    `width:${box.info.w}%;height:${box.info.h}%;bottom:auto;right:auto;` +
+    `padding:${pad}px;text-align:${val('align')};` +
+    `background:${bg};font-family:${font};text-shadow:${shadow};` +
+    `letter-spacing:${letter}px;line-height:${lineH};text-transform:${tcase};` +
+    (radius  ? `border-radius:${radius}px;` : '') +
+    (borderW ? `border:${borderW}px solid ${borderCol};` : '') +
+    (blur    ? `backdrop-filter:blur(${blur}px);-webkit-backdrop-filter:blur(${blur}px);` : '') +
+    (boxShadow !== 'none' ? `box-shadow:${boxShadow};` : '') +
+    `overflow:hidden;` +
+  `}`);
+
+  const block = (sel, show, size, color, op, weight, italic) => {
+    if (!show) { lines.push(`${sel}{display:none}`); return; }
+    const parts = [`font-size:${size}px`, `color:${color}`, `margin-top:${rowGap}px`];
+    if (op != null) parts.push(`opacity:${op/100}`);
+    if (weight)     parts.push(`font-weight:${weight}`);
+    if (italic)     parts.push(`font-style:italic`);
+    lines.push(`${sel}{${parts.join(';')}}`);
+  };
+  block('.ch', val('chShow'), +val('chSize'), val('chCol'), +val('chOp'), val('chW'), val('chIt'));
+  block('.ti', val('tiShow'), +val('tiSize'), val('tiCol'), null,         val('tiW'), val('tiIt'));
+  block('.me', val('meShow'), +val('meSize'), val('meCol'), +val('meOp'), null,        val('meIt'));
+
+  // bar
+  if (!val('barShow')) lines.push(`#bar{display:none}`);
+  else {
+    const bm = +val('barMargin'), bg2 = +val('barGlow'), br = +val('barRadius');
+    lines.push(`#bar{position:fixed;left:${bm}px;right:${bm}px;width:auto;height:${+val('barH')}px;` +
+      `background:${val('barCol')};top:calc(${box.barY}% - ${+val('barH')}px);bottom:auto;` +
+      (br  ? `border-radius:${br}px;` : '') +
+      (bg2 ? `box-shadow:0 0 ${bg2}px ${val('barCol')};` : '') + `}`);
+  }
+
+  // video
+  const filters = [];
+  if (+val('vBright') !== 100)   filters.push(`brightness(${+val('vBright')/100})`);
+  if (+val('vContrast') !== 100) filters.push(`contrast(${+val('vContrast')/100})`);
+  if (+val('vSat') !== 100)      filters.push(`saturate(${+val('vSat')/100})`);
+  if (+val('vBlur'))             filters.push(`blur(${+val('vBlur')}px)`);
+  const vRadius = +val('vRadius');
+  if (filters.length || vRadius) {
+    lines.push(`video{` + (filters.length ? `filter:${filters.join(' ')};` : '') +
+      (vRadius ? `border-radius:${vRadius}px;` : '') + `}`);
+  }
+
+  // animation
+  const anim = val('anim'), ms = +val('animMs');
+  if (anim !== 'none') {
+    const KF = {
+      fade:        '@keyframes clipEntry{from{opacity:0}to{opacity:1}}',
+      'slide-up':  '@keyframes clipEntry{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}',
+      'slide-down':'@keyframes clipEntry{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}',
+      'slide-left':'@keyframes clipEntry{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}',
+      'slide-right':'@keyframes clipEntry{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}',
+      zoom:        '@keyframes clipEntry{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}',
+    };
+    lines.push(KF[anim]);
+    lines.push(`#info{animation:clipEntry ${ms}ms ease-out}`);
+  }
+
+  const extra = val('extra').trim();
+  if (extra) lines.push(extra);
+  return lines.join('\n');
+}
+
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+function buildURL() {
+  const p = new URLSearchParams();
+  if (val('chTemplate').trim())     p.set('chTemplate', val('chTemplate'));
+  if (val('tiTemplate').trim())     p.set('tiTemplate', val('tiTemplate'));
+  if (val('meTemplate').trim())     p.set('meTemplate', val('meTemplate'));
+  if (val('transition'))            p.set('transition', val('transition'));
+  if (+val('transitionMs') !== 500) p.set('transitionMs', val('transitionMs'));
+  if (val('transitionVideo').trim())p.set('transitionVideo', val('transitionVideo'));
+  if (+val('limit') !== 20)         p.set('limit', val('limit'));
+  return p.toString() ? '&' + p.toString() : '(no URL params needed — defaults will be used)';
+}
+
+function update() {
+  ['pad','rowGap','grad','bgOp','blur','radius','borderW','letter','lineH','chSize','chOp','tiSize','meSize','meOp',
+   'barH','barGlow','barMargin','barRadius','vBright','vContrast','vSat','vBlur','vRadius','animMs','transitionMs','limit'].forEach(id => {
+    const v = $(id+'V'); if (v) v.textContent = val(id);
+  });
+  // mirror sample text — but only in mock mode (live mode shows real clips)
+  if (targetDoc === document) {
+    ch.textContent = val('chTemplate').trim() ? expand(val('chTemplate')) : SAMPLE.channel;
+    ti.textContent = val('tiTemplate').trim() ? expand(val('tiTemplate')) : SAMPLE.title;
+    me.textContent = val('meTemplate').trim() ? expand(val('meTemplate')) : `${SAMPLE.views} views · clipped by ${SAMPLE.creator_name} · ${SAMPLE.date} · ${SAMPLE.game}`;
+  }
+  const css = buildCSS();
+  // mock mode: write to local style tag. live mode: also postMessage to iframe (cross-origin safe)
+  liveStyleEl.textContent = css;
+  if (liveMode && liveFrame.contentWindow) {
+    liveFrame.contentWindow.postMessage({type:'cssbuilder', css}, '*');
+  }
+  out.textContent = css;
+  urlOut.textContent = buildURL();
+  // applyBox writes inline styles to info/bar — only safe in same-origin (will throw silently in cross-origin)
+  try { applyBox(); } catch {}
+}
+
+KNOBS.forEach(k => { const el = $(k); if (el) { el.addEventListener('input', update); el.addEventListener('change', update); } });
+
+function replayAnim() {
+  // ponytail: toggle the live <style> to re-trigger CSS animation
+  const t = liveStyleEl.textContent; liveStyleEl.textContent = ''; void preview.offsetWidth; liveStyleEl.textContent = t;
+}
+
+// ── Live preview with real clips.html embedded ───────────────────────────
+// ponytail: credentials kept in localStorage only, never in URL or DOM dataset.
+// The iframe receives them via its own URL params (same-origin, file://).
+const CRED_KEY = 'clipsPlayerCSS.creds';
+(function restoreCreds(){
+  try { const c = JSON.parse(localStorage.getItem(CRED_KEY) || 'null'); if (!c) return;
+    $('lpChannel').value = c.channel || ''; $('lpClientId').value = c.clientId || ''; $('lpToken').value = c.token || '';
+  } catch {}
+})();
+['lpChannel','lpClientId','lpToken'].forEach(id => $(id).addEventListener('change', () => {
+  localStorage.setItem(CRED_KEY, JSON.stringify({
+    channel: $('lpChannel').value, clientId: $('lpClientId').value, token: $('lpToken').value
+  }));
+}));
+
+let liveMode = false;
+// reload iframe when URL-param knobs change (templates / transitions); debounced
+const URL_PARAM_KNOBS = ['chTemplate','tiTemplate','meTemplate','transition','transitionMs','transitionVideo','limit'];
+let reloadTimer;
+function scheduleReload() {
+  if (!liveMode) return;
+  clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => loadLive(), 600);
+}
+URL_PARAM_KNOBS.forEach(k => {
+  const el = document.getElementById(k);
+  if (el) el.addEventListener('change', scheduleReload);
+});
+
+function loadLive() {
+  const channel = $('lpChannel').value.trim(), clientId = $('lpClientId').value.trim(), token = $('lpToken').value.trim();
+  if (!channel || !clientId || !token) { alert('Need channel, client ID, and token.'); return; }
+  const p = new URLSearchParams({channel, clientId, token, limit: val('limit') || '20'});
+  ['chTemplate','tiTemplate','meTemplate','transition','transitionMs','transitionVideo'].forEach(k => {
+    const v = val(k); if (v && String(v).trim()) p.set(k, v);
+  });
+  // ponytail: don't log p.toString() — contains token
+  liveFrame.onload = () => {
+    // ponytail: cross-origin (file://) blocks contentDocument — use postMessage instead
+    let d = null;
+    try { d = liveFrame.contentDocument; } catch {}
+    if (d) {
+      // same-origin (http://localhost): also enable drag/resize against real elements
+      const fInfo = d.getElementById('info'), fBar = d.getElementById('bar');
+      if (fInfo && fBar) {
+        info = fInfo; bar = fBar; targetDoc = d;
+        ch = fInfo.querySelector('.ch') || fInfo;
+        ti = fInfo.querySelector('.ti') || fInfo;
+        me = fInfo.querySelector('.me') || fInfo;
+        attachInteractions();
+      }
+    }
+    liveMode = true;
+    setTimeout(update, 100);   // give clips.html time to wire up its message listener
+  };
+  liveFrame.src = 'clips.html?' + p.toString();
+  mock.style.display = 'none'; liveFrame.style.display = 'block'; liveOverlay.style.display = 'block';
+}
+
+function unloadLive() {
+  liveMode = false;
+  liveFrame.src = 'about:blank';
+  liveFrame.style.display = 'none'; liveOverlay.style.display = 'none'; mock.style.display = 'block';
+  bindMockTargets(); update();
+}
+
+function copyCSS() { copy(buildCSS(), 'CSS copied!'); }
+function copyURL() {
+  const u = buildURL();
+  if (u.startsWith('&')) copy(u, 'URL params copied!');
+  else copy('', 'nothing to copy — set a template');
+}
+function copy(text, msg) {
+  navigator.clipboard.writeText(text).then(() => {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1400);
+  });
+}
+
+const KEY = 'clipsPlayerCSS.preset';
+function savePreset() {
+  const d = { box, knobs: {} };
+  KNOBS.forEach(k => { const el = $(k); if (el) d.knobs[k] = el.type === 'checkbox' ? el.checked : el.value; });
+  localStorage.setItem(KEY, JSON.stringify(d));
+  copy('', 'preset saved'); navigator.clipboard.writeText(''); // ponytail: reuse toast
+  const t = $('toast'); t.textContent = 'preset saved'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1400);
+}
+function loadPreset() {
+  const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!d) return;
+  if (d.box) Object.assign(box, d.box);
+  if (d.knobs) Object.entries(d.knobs).forEach(([k,v]) => {
+    const el = $(k); if (!el) return; if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  });
+  update();
+}
+function resetAll() {
+  if (confirm('Reset all?')) { localStorage.removeItem(KEY); location.reload(); }
+}
+
+// base CSS for preview
+const baseCSS = document.createElement('style');
+baseCSS.textContent = `
+#preview #info{position:absolute;pointer-events:auto;overflow:hidden}
+#preview #info *{pointer-events:none}
+#preview .resize-h{pointer-events:auto !important}
+#preview #bar{position:absolute;left:0;width:100%;z-index:2;min-height:4px}
+#preview #bar:hover{outline:1px dashed #9147ff}
+#preview #info:hover{outline:1px dashed rgba(145,71,255,.5)}
+`;
+document.head.appendChild(baseCSS);
+
+bindMockTargets();   // now safe — box/applyBox/etc are initialized
+if (localStorage.getItem(KEY)) loadPreset(); else update();
+window.addEventListener('resize', applyBox);
+
+console.assert(buildCSS().includes('#info{'), '#info rule');
+console.assert(expand('{channel}/{views}') === 'yourchannel/42.3K', 'expand');
+</script>
+</body></html>

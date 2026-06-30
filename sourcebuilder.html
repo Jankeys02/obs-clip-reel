@@ -1,0 +1,176 @@
+<!doctype html>
+<!-- URL builder for clips.html — fill the form, copy the URL into OBS. -->
+<html><head><meta charset=utf-8><title>Clips Player URL Builder</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e0e10;color:#efeff1;font:14px/1.4 system-ui,sans-serif;padding:24px;max-width:900px;margin:0 auto}
+h1{color:#9147ff;margin-bottom:4px}
+.sub{color:#888;margin-bottom:22px;font-size:13px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#9147ff;margin:18px 0 8px;border-bottom:1px solid #333;padding-bottom:4px}
+.row{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;margin-bottom:7px}
+label{color:#bbb;font-size:13px}
+.hint{color:#666;font-size:11px;grid-column:2}
+input,select{background:#1f1f23;color:#efeff1;border:1px solid #333;padding:6px 9px;border-radius:4px;font:13px ui-monospace,monospace;width:100%}
+input:focus,select:focus{outline:0;border-color:#9147ff}
+input[type=checkbox]{width:auto}
+.out{margin-top:24px;background:#1f1f23;border:1px solid #333;border-radius:4px;padding:12px;
+  font:12px/1.5 ui-monospace,monospace;word-break:break-all;color:#9cf;min-height:60px}
+.btns{margin-top:10px;display:flex;gap:8px}
+button{background:#9147ff;color:#fff;border:0;padding:9px 16px;border-radius:4px;font:13px sans-serif;cursor:pointer;font-weight:600}
+button:hover{background:#a970ff}
+button.sec{background:#333}button.sec:hover{background:#444}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#9147ff;color:#fff;padding:10px 20px;border-radius:4px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+details{margin:8px 0;background:#18181b;border-radius:4px;padding:8px 12px}
+summary{cursor:pointer;font-weight:600;color:#bbb}
+details[open] summary{color:#9147ff;margin-bottom:8px}
+code{background:#000;padding:1px 5px;border-radius:3px;color:#9cf}
+a{color:#9147ff}
+</style></head>
+<body>
+<h1>Clips Player URL Builder</h1>
+<div class=sub>Fill what you need, leave the rest blank. The URL updates live — copy it into OBS Browser Source.</div>
+
+<h2>Required</h2>
+<div class=row><label>Channel(s)</label><input id=channel placeholder="yourchannel  or  a,b,c"></div>
+<div class=row><label>Client ID</label><input id=clientId placeholder="from dev.twitch.tv/console"></div>
+<div class=row><label>Access Token</label><input id=token placeholder="from the OAuth authorize URL"></div>
+
+<details><summary>How to get Client ID + Token →</summary>
+<ol style="padding-left:20px;margin:8px 0;line-height:1.7">
+  <li>Register an app at <a href="https://dev.twitch.tv/console/apps/create" target=_blank>dev.twitch.tv/console</a>. Redirect URL = <code>http://localhost</code>. Type = <b>Public</b>. Copy the Client ID.</li>
+  <li>Paste this in your browser (replace CLIENT_ID): <br>
+    <code id=oauthlink>https://id.twitch.tv/oauth2/authorize?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=token&scope=chat:read</code></li>
+  <li>Twitch redirects to <code>http://localhost/#access_token=XXXX</code>. Page fails to load (fine) — copy the token from the URL bar.</li>
+</ol>
+</details>
+
+<h2>Selection</h2>
+<div class=row><label>Limit</label><input id=limit type=number placeholder="20" min=1></div>
+<div class=row><label>Sort</label><select id=sort><option value="">recent (shuffle)</option><option>top</option></select></div>
+<div class=row><label>Date range (days)</label><input id=dateRange type=number placeholder="e.g. 7"></div>
+<div class=row><label>Featured only</label><input id=featured type=checkbox></div>
+<div class=row><label>Game</label><input id=game placeholder="Just Chatting"></div>
+<div class=row><label>Min views</label><input id=minViews type=number placeholder="0"></div>
+<div class=row><label>Min duration (s)</label><input id=minDuration type=number placeholder="0"></div>
+<div class=row><label>Max duration (s)</label><input id=maxDuration type=number placeholder="0 = no max"></div>
+<div class=row><label>Exclude words</label><input id=exclude placeholder="comma,separated"></div>
+<div class=row><label>Include words</label><input id=include placeholder="only clips with these"></div>
+<div class=row><label>No repeats</label><input id=noRepeat type=checkbox></div>
+<div class=row><label>Loop count</label><input id=loop type=number placeholder="0 = infinite"></div>
+
+<h2>Playback / Look</h2>
+<div class=row><label>Volume</label><input id=volume type=number step=0.1 min=0 max=1 placeholder="1"></div>
+<div class=row><label>Gap between clips (ms)</label><input id=gap type=number placeholder="0"></div>
+<div class=row><label>Video fit</label><select id=fit><option value="">cover</option><option>contain</option></select></div>
+<div class=row><label>Overlay position</label><select id=pos><option value="">bottom</option><option>top</option></select></div>
+<div class=row><label>Show info overlay</label><select id=showInfo><option value="">yes</option><option value="false">no</option></select></div>
+<div class=row><label>Full override</label><input id=template placeholder="{channel} - {title}"></div>
+<div class=hint>replaces all 3 lines with one</div>
+<div class=row><label>.ch line</label><input id=chTemplate placeholder="{channel}"></div>
+<div class=row><label>.ti line</label><input id=tiTemplate placeholder="{title}"></div>
+<div class=row><label>.me line</label><input id=meTemplate placeholder="{views} views · {creator_name} · {date}"></div>
+<div class=hint>vars: {channel} {title} {game} {creator_name} {created_at} {date} {views} {views_raw} {duration}</div>
+
+<h2>Transitions</h2>
+<div class=row><label>Effect</label><select id=transition><option value="">none (cut)</option><option>fade</option><option>slide-left</option><option>slide-right</option><option>slide-up</option><option>slide-down</option><option>zoom</option></select></div>
+<div class=row><label>Duration (ms)</label><input id=transitionMs type=number placeholder="500"></div>
+<div class=row><label>Custom video URL</label><input id=transitionVideo placeholder="https://.../intro.mp4 or transition.webm"></div>
+<div class=hint>played between clips. Must be a public URL or sit next to clips.html (e.g. <code>transition.mp4</code>)</div>
+
+<h2>Chat Control</h2>
+<div class=row><label>Start command</label><input id=command placeholder="!clipsreel"></div>
+<div class=row><label>Mods only</label><select id=modsOnly><option value="">yes</option><option value="false">no</option></select></div>
+<div class=row><label>!clipskip etc.</label><select id=chatControl><option value="">enabled</option><option value="false">disabled</option></select></div>
+
+<h2>Debug</h2>
+<div class=row><label>On-screen log</label><input id=debug type=checkbox></div>
+
+<div class=out id=url></div>
+<div class=btns>
+  <button onclick=copyUrl()>Copy URL</button>
+  <button class=sec onclick=window.open(buildUrl(),'_blank')>Open in tab</button>
+  <button class=sec onclick=savePreset()>Save preset</button>
+  <button class=sec onclick=loadPreset()>Load preset</button>
+  <button class=sec onclick=clearAll()>Clear</button>
+</div>
+
+<details style="margin-top:24px"><summary>OBS Browser Source — custom styling →</summary>
+<div style="padding:8px 0;line-height:1.6">
+  OBS lets you add CSS in the Browser Source dialog (the "Custom CSS" field). Targets:
+  <ul style="padding-left:20px;margin:6px 0">
+    <li><code>#info</code> — the overlay container</li>
+    <li><code>.ch</code> — channel-name line · <code>.ti</code> — title line · <code>.me</code> — meta line</li>
+    <li><code>#bar</code> — purple progress bar</li>
+    <li><code>video</code> — the player itself</li>
+  </ul>
+  Example — bigger title, gold bar, hide everything but title:<br>
+  <code style="display:block;white-space:pre;background:#000;padding:8px;margin-top:6px;border-radius:4px;color:#9cf;font-size:11px">.ch,.me{display:none}
+.ti{font-size:32px;color:#ffd700}
+#bar{background:#ffd700;height:6px}</code>
+</div>
+</details>
+
+<div class=toast id=toast>copied!</div>
+
+<script>
+const FIELDS = ['channel','clientId','token','limit','sort','dateRange','featured','game','minViews','minDuration','maxDuration','exclude','include','noRepeat','loop','volume','gap','fit','pos','showInfo','template','chTemplate','tiTemplate','meTemplate','transition','transitionMs','transitionVideo','command','modsOnly','chatControl','debug'];
+const $ = id => document.getElementById(id);
+
+// auto-fill from existing URL hash (so users can edit a saved URL)
+const initial = new URLSearchParams(location.hash.slice(1));
+FIELDS.forEach(f => {
+  const el = $(f);
+  if (!el) return;
+  const v = initial.get(f);
+  if (v != null) { if (el.type === 'checkbox') el.checked = v === 'true'; else el.value = v; }
+  el.addEventListener('input', update);
+  el.addEventListener('change', update);
+});
+
+function buildUrl() {
+  const p = new URLSearchParams();
+  FIELDS.forEach(f => {
+    const el = $(f); if (!el) return;
+    const v = el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value.trim();
+    if (v) p.set(f, v);
+  });
+  // file:// URL of clips.html living next to this builder
+  const base = location.href.replace(/builder\.html.*$/, 'clips.html');
+  return p.toString() ? base + '?' + p.toString() : base;
+}
+
+function update() {
+  const u = buildUrl();
+  $('url').textContent = u;
+  location.replace('#' + new URLSearchParams(new URL(u).search).toString());
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText(buildUrl()).then(() => {
+    const t = $('toast'); t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1400);
+  });
+}
+
+const PRESET_KEY = 'clipsPlayerBuilder.preset';
+function savePreset() {
+  const data = {}; FIELDS.forEach(f => { const el = $(f); data[f] = el.type === 'checkbox' ? el.checked : el.value; });
+  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+  const t = $('toast'); t.textContent = 'preset saved'; t.classList.add('show'); setTimeout(() => { t.classList.remove('show'); t.textContent = 'copied!'; }, 1400);
+}
+function loadPreset() {
+  const d = JSON.parse(localStorage.getItem(PRESET_KEY) || 'null'); if (!d) return;
+  FIELDS.forEach(f => { const el = $(f); if (!el || d[f] == null) return; if (el.type === 'checkbox') el.checked = d[f]; else el.value = d[f]; });
+  update();
+}
+function clearAll() { FIELDS.forEach(f => { const el = $(f); if (!el) return; if (el.type === 'checkbox') el.checked = false; else el.value = ''; }); update(); }
+
+document.querySelector('#oauthlink').addEventListener('click', e => {
+  const cid = $('clientId').value.trim();
+  if (cid) e.currentTarget.textContent = e.currentTarget.textContent.replace('CLIENT_ID', cid);
+});
+
+// load saved preset on first visit if URL has no params
+if (!location.hash && localStorage.getItem(PRESET_KEY)) loadPreset();
+update();
+</script>
+</body></html>
