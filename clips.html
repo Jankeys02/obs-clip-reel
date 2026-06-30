@@ -396,7 +396,6 @@ async function play() {
     back.src = url;
     back.volume = VOLUME;
     back.muted = VOLUME === 0;
-    back.classList.remove('clip-enter','clip-exit');
     await back.play().catch(err => { log('info', 'unmuted blocked, muting:', err.message); back.muted = true; return back.play(); });
     // ponytail: animation + overlay text fire AFTER play() resolves so they align with the actual frame swap, not the network fetch
     render(c);
@@ -405,12 +404,9 @@ async function play() {
       front.classList.remove('clip-enter'); void front.offsetWidth; front.classList.add('clip-exit');
       back.classList.add('clip-enter');
       info.classList.remove('clip-enter'); void info.offsetWidth; info.classList.add('clip-enter');
-    } else {
-      front.classList.remove('clip-enter','clip-exit');
     }
     // Swap roles. Pause + clear old front once its exit animation finishes.
-    const oldFront = front;
-    front = back; back = oldFront;
+    [front, back] = [back, front]; const oldFront = back;
     setTimeout(() => {
       if (oldFront === back) { oldFront.pause(); oldFront.removeAttribute('src'); oldFront.load(); oldFront.classList.remove('clip-enter','clip-exit'); }
     }, TRANSITION_MS + 50);
