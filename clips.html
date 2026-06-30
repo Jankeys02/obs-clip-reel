@@ -63,14 +63,14 @@ html,body{background:#000;height:100%;overflow:hidden;font:14px system-ui,sans-s
 /* ponytail: 16:9 letterboxed stage = same logical canvas as cssbuilder preview, no cropping at any viewport aspect */
 #stage{position:relative;aspect-ratio:16/9;width:min(100vw,calc(100vh*16/9));height:auto;max-height:100vh;background:#000;overflow:hidden}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#000}
-#info{position:absolute;bottom:0;left:0;right:0;padding:14px 20px 18px;
+#info{position:absolute;bottom:0;left:0;right:0;padding:14px 20px 18px;z-index:3;
   background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none;
   text-shadow:0 1px 3px rgba(0,0,0,.6)}
 #info.hide,#info:empty{display:none}
 .ch{font-size:13px;opacity:.75;letter-spacing:.3px}
 .ti{font-size:17px;font-weight:600;margin-top:3px;line-height:1.25}
 .me{font-size:12px;opacity:.6;margin-top:4px}
-#bar{position:absolute;bottom:0;left:0;height:3px;background:#9147ff;width:0;z-index:2}
+#bar{position:absolute;bottom:0;left:0;height:3px;background:#9147ff;width:0;z-index:3}
 #msg{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:30px;
   color:#f88;font-size:15px;line-height:1.5;white-space:pre-wrap}
 #msg.show{display:grid}
@@ -393,6 +393,7 @@ async function play() {
     const url = (nextResolved?.id === c.id) ? nextResolved.url : await resolveMp4(c.id);
     nextResolved = null;
     // Load into BACK; play; then crossfade swap with FRONT.
+    back.classList.remove('clip-enter','clip-exit'); // ponytail: previous cycle's exit may still be live (forwards fill = opacity 0) if user skipped fast
     back.src = url;
     back.volume = VOLUME;
     back.muted = VOLUME === 0;
@@ -405,11 +406,12 @@ async function play() {
       back.classList.add('clip-enter');
       info.classList.remove('clip-enter'); void info.offsetWidth; info.classList.add('clip-enter');
     }
-    // Swap roles. Pause + clear old front once its exit animation finishes.
+    // Swap roles. New front on top so it's not occluded by the old element (DOM order alone is unreliable).
     [front, back] = [back, front]; const oldFront = back;
+    front.style.zIndex = '2'; back.style.zIndex = '1';
     setTimeout(() => {
       if (oldFront === back) { oldFront.pause(); oldFront.removeAttribute('src'); oldFront.load(); oldFront.classList.remove('clip-enter','clip-exit'); }
-    }, TRANSITION_MS + 50);
+    }, useCss ? TRANSITION_MS + 50 : 0);
     markSeen(c.id);
     playedCount++;
     prefetchNext();
