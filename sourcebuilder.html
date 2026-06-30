@@ -174,7 +174,7 @@ if (!location.hash && localStorage.getItem(PRESET_KEY)) loadPreset();
 update();
 
 // ── Update check ─────────────────────────────────────────────────────────
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 fetch('https://api.github.com/repos/Jankeys02/obs-clip-reel/releases/latest')
   .then(r => r.ok ? r.json() : null)
   .then(r => {
