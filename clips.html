@@ -342,6 +342,15 @@ const expand = (tpl, c) => tpl
   .replaceAll('{duration}',    String(Math.round(c.duration || 0)) + 's');
 
 let clips = [], i = 0, stopped = false;
+// ponytail: cache next clip's resolved mp4 url so the GQL roundtrip happens during playback, not between clips
+let nextResolved = null; // { id, url }
+async function prefetchNext() {
+  if (!clips.length) return;
+  const ni = (i + 1) % clips.length;
+  const id = clips[ni]?.id; if (!id) return;
+  try { const url = await resolveMp4(id); nextResolved = { id, url }; }
+  catch (e) { log('info', 'prefetch failed', id, e.message); nextResolved = null; }
+}
 
 function render(c) {
   info.textContent = '';
@@ -366,20 +375,26 @@ async function play() {
   if (LOOP && playedCount >= LOOP) { log('info', 'loop done'); return stopPlayer(); }
   const c = clips[i];
   log('info', `play [${i+1}/${clips.length}]`, c.id, '·', c._channel);
-  render(c);
   bar.style.transition = 'none'; bar.style.width = '0';
   try {
-    if (TRANSITION_VID && playedCount > 0) await playTransitionVideo();
-    if (TRANSITION && TRANSITION_KF[TRANSITION]) {
-      v.classList.remove('clip-enter'); void v.offsetWidth; v.classList.add('clip-enter');
-      info.classList.remove('clip-enter'); void info.offsetWidth; info.classList.add('clip-enter');
-    }
-    v.src = await resolveMp4(c.id);
+    // ponytail: transition video and CSS transition are mutually exclusive — video wins when both set
+    const useVideoTransition = TRANSITION_VID && playedCount > 0;
+    if (useVideoTransition) await playTransitionVideo();
+    const url = (nextResolved?.id === c.id) ? nextResolved.url : await resolveMp4(c.id);
+    nextResolved = null;
+    v.src = url;
     v.volume = VOLUME;
     v.muted = VOLUME === 0;
     await v.play().catch(err => { log('info', 'unmuted blocked, muting:', err.message); v.muted = true; return v.play(); });
+    // ponytail: animation and overlay text fire AFTER play() resolves so they align with the actual frame swap, not the network fetch
+    render(c);
+    if (!useVideoTransition && TRANSITION && TRANSITION_KF[TRANSITION]) {
+      v.classList.remove('clip-enter'); void v.offsetWidth; v.classList.add('clip-enter');
+      info.classList.remove('clip-enter'); void info.offsetWidth; info.classList.add('clip-enter');
+    }
     markSeen(c.id);
     playedCount++;
+    prefetchNext();
   } catch (e) { log('err', 'skip', c.id, e.message); return skip(); }
   bar.style.transition = `width ${v.duration || c.duration || 30}s linear`;
   bar.style.width = '100%';
