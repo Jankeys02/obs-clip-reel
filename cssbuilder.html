@@ -627,6 +627,19 @@ bindMockTargets();   // now safe — box/applyBox/etc are initialized
 if (localStorage.getItem(KEY)) loadPreset(); else update();
 window.addEventListener('resize', applyBox);
 
+// ── Update check ─────────────────────────────────────────────────────────
+const VERSION = 'v1.0.0';
+fetch('https://api.github.com/repos/Jankeys02/obs-clip-reel/releases/latest')
+  .then(r => r.ok ? r.json() : null)
+  .then(r => {
+    if (!r || !r.tag_name || r.tag_name === VERSION) return;
+    const b = document.createElement('a');
+    b.href = r.html_url; b.target = '_blank';
+    b.textContent = `Update available: ${r.tag_name} (running ${VERSION})`;
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100;background:#9147ff;color:#fff;font:12px system-ui,sans-serif;padding:6px 12px;text-align:center;text-decoration:none;font-weight:600';
+    document.body.appendChild(b);
+  }).catch(() => {});
+
 console.assert(buildCSS().includes('#info{'), '#info rule');
 console.assert(expand('{channel}/{views}') === 'yourchannel/42.3K', 'expand');
 </script>

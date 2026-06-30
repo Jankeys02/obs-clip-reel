@@ -172,5 +172,18 @@ document.querySelector('#oauthlink').addEventListener('click', e => {
 // load saved preset on first visit if URL has no params
 if (!location.hash && localStorage.getItem(PRESET_KEY)) loadPreset();
 update();
+
+// ── Update check ─────────────────────────────────────────────────────────
+const VERSION = 'v1.0.0';
+fetch('https://api.github.com/repos/Jankeys02/obs-clip-reel/releases/latest')
+  .then(r => r.ok ? r.json() : null)
+  .then(r => {
+    if (!r || !r.tag_name || r.tag_name === VERSION) return;
+    const b = document.createElement('a');
+    b.href = r.html_url; b.target = '_blank';
+    b.textContent = `Update available: ${r.tag_name} (running ${VERSION})`;
+    b.style.cssText = 'display:block;background:#9147ff;color:#fff;padding:8px 12px;border-radius:4px;text-align:center;text-decoration:none;margin-bottom:14px;font-weight:600';
+    document.body.insertBefore(b, document.body.firstChild);
+  }).catch(() => {});
 </script>
 </body></html>

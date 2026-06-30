@@ -49,6 +49,7 @@
     transitionMs=500     transition duration (default 500)
     transitionVideo=URL  custom video file (mp4/webm) played as transition between clips
     debug=true           show on-screen log overlay (helix calls, gql, video errors)
+    showupdates=true     show a banner when a newer GitHub release is available
 
   STYLING — point OBS "Custom CSS" at these hooks:
     video       the player    | #info       overlay container
@@ -486,6 +487,21 @@ function connectChat() {
 if (COMMAND) showText('Waiting for chat command: ' + COMMAND);
 else         start();
 connectChat();
+
+// ── Update check (opt-in: ?showupdates=true) ─────────────────────────────
+const VERSION = 'v1.0.0';
+if (get('showupdates') === 'true') {
+  fetch('https://api.github.com/repos/Jankeys02/obs-clip-reel/releases/latest')
+    .then(r => r.ok ? r.json() : null)
+    .then(r => {
+      if (!r || !r.tag_name || r.tag_name === VERSION) return;
+      const b = document.createElement('a');
+      b.href = r.html_url; b.target = '_blank';
+      b.textContent = `Update available: ${r.tag_name} (running ${VERSION})`;
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100;background:#9147ff;color:#fff;font:13px system-ui,sans-serif;padding:6px 12px;text-align:center;text-decoration:none';
+      document.body.appendChild(b);
+    }).catch(() => {});
+}
 
 // self-checks (silent on success)
 console.assert(expand('{channel}/{title}', {broadcaster_name:'a',title:'b'}) === 'a/b', 'expand');
