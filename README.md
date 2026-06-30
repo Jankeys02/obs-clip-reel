@@ -2,26 +2,33 @@
 
 Three static HTML files, zero dependencies, zero build step. Plays Twitch clips as an OBS Browser Source with chat control, transitions, and custom styling.
 
-- **`clips.html`** — the player itself. Drop into OBS as a Browser Source.
-- **`sourcebuilder.html`** — form-based URL builder. Fill in the fields, copy the URL into OBS.
-- **`cssbuilder.html`** — visual overlay designer with a live 16:9 preview. Drag/resize/style, then paste the generated CSS into OBS Browser Source → Custom CSS.
+## Quick Start
 
-## Setup
+Nothing to install. Five minutes from zero to clips on stream.
 
-1. Register an app at [dev.twitch.tv/console](https://dev.twitch.tv/console/apps/create).
-   - **OAuth Redirect URL:** `http://localhost`
-   - **Category:** Application Integration
-   - **Type:** Public
-   - Copy the **Client ID**.
-2. Get a user OAuth token — paste this URL in your browser (replace `CLIENT_ID`):
-   ```
-   https://id.twitch.tv/oauth2/authorize?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=token&scope=chat:read
-   ```
-   Twitch redirects to `http://localhost/#access_token=XXXX` (page fails to load — fine, the token is in the address bar). Copy the `access_token` value.
-3. Open `sourcebuilder.html` in your browser, fill in channel + Client ID + token + any options, copy the resulting URL.
-4. In OBS: add a **Browser Source** → point it at the local `clips.html` (or paste the full URL) → set size to 1920×1080 → check "Shutdown source when not visible".
+**1. Get a Twitch Client ID.** Register an app at [dev.twitch.tv/console](https://dev.twitch.tv/console/apps/create) — OAuth Redirect `http://localhost`, Category *Application Integration*, Type *Public*. Copy the **Client ID**.
 
-Credentials live only in the OBS source URL at runtime. The builder tools optionally cache them in your browser's `localStorage` for convenience — clear via the builder's "Clear" button or browser DevTools.
+**2. Get a Twitch token.** Paste this in your browser (swap `CLIENT_ID`):
+```
+https://id.twitch.tv/oauth2/authorize?client_id=CLIENT_ID&redirect_uri=http://localhost&response_type=token&scope=chat:read
+```
+Twitch bounces you to `http://localhost/#access_token=XXXX`. The page fails to load — that's fine. Copy the `access_token` value from the address bar.
+
+**3. Build your URL.** Open **[sourcebuilder.html](https://jankeys02.github.io/obs-clip-reel/sourcebuilder.html)**, fill in channel + Client ID + token + any options, hit *Copy URL*.
+
+**4. Add to OBS.** New **Browser Source** → paste the URL → size **1920×1080** → check *Shutdown source when not visible*. Done.
+
+**Optional — style the overlay.** Open **[cssbuilder.html](https://jankeys02.github.io/obs-clip-reel/cssbuilder.html)**, drag/resize/style, paste the generated CSS into the same Browser Source's *Custom CSS* field.
+
+## The files
+
+- **[`clips.html`](https://jankeys02.github.io/obs-clip-reel/clips.html)** — the player. Already hosted; you only need a local copy if you want to run offline.
+- **[`sourcebuilder.html`](https://jankeys02.github.io/obs-clip-reel/sourcebuilder.html)** — URL builder.
+- **[`cssbuilder.html`](https://jankeys02.github.io/obs-clip-reel/cssbuilder.html)** — overlay designer with live 16:9 preview.
+
+Want a local copy? [Download the zip](https://github.com/Jankeys02/obs-clip-reel/releases/latest) or `git clone https://github.com/Jankeys02/obs-clip-reel.git`. The player shows a banner when a new release is tagged — hosted users get it automatically.
+
+Credentials live only in the OBS source URL at runtime. The builders optionally cache them in browser `localStorage` — clear via the *Clear* button.
 
 ## Features
 
