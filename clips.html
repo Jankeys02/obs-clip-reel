@@ -489,7 +489,7 @@ else         start();
 connectChat();
 
 // ── Update check (opt-in: ?showupdates=true) ─────────────────────────────
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.0.2';
 if (get('showupdates') === 'true') {
   fetch('https://api.github.com/repos/Jankeys02/obs-clip-reel/releases/latest')
     .then(r => r.ok ? r.json() : null)
